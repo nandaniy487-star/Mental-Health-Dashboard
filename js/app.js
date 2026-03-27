@@ -396,9 +396,9 @@ function drawStressChart() {
   const values = stressHistory.map((e) => parseInt(e.level));
   const plotData = values.length ? values : [0];
 
-  // FIXED WEEKDAY ORDER
+  // FIXED WEEKDAY ORDER (ALWAYS START FROM MONDAY)
   const fullWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-  const labels = fullWeek.slice(fullWeek.length - plotData.length);
+  const labels = fullWeek.slice(0, plotData.length);
 
   if (stressChart) stressChart.destroy();
 
@@ -425,7 +425,6 @@ function drawStressChart() {
 
       plugins: {
         legend: { display: false },
-
         tooltip: {
           callbacks: {
             label: function (ctx) {
@@ -439,7 +438,6 @@ function drawStressChart() {
         }
       },
 
-      // Clicking to edit a point
       onClick: (event) => {
         const points = stressChart.getElementsAtEventForMode(
           event,
@@ -453,7 +451,6 @@ function drawStressChart() {
         const index = points[0].index;
         selectedDayIndex = index;
 
-        // Load value into slider
         const slider = document.getElementById("stressSlider");
         slider.value = stressHistory[index].level;
 
@@ -462,7 +459,6 @@ function drawStressChart() {
         showToast("Editing selected day's stress score...");
       },
 
-      // Scales
       scales: {
         y: { min: 0, max: 10, grid: { color: gc }, ticks: { color: tc } },
         x: { grid: { color: gc }, ticks: { color: tc } }
