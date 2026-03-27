@@ -151,6 +151,19 @@ function saveHealth() {
 /* ============================================================
    MOOD TRACKER
    ============================================================ */
+   let moodHistory = retrieve("mood-history", []);  // stores last 7 moods
+let selectedMoodIndex = null; // for editing on click
+
+const moodLevels = {
+  "Happy": 5,
+  "Content": 4,
+  "Neutral": 3,
+  "Sad": 2,
+  "Distressed": 2,
+  "Angry": 1,
+  "Anxious": 1,
+  "Tired": 2
+};
 function initMoodTracker() {
   document.querySelectorAll('.mood-btn').forEach(btn => {
     btn.addEventListener('click', function() {
@@ -164,35 +177,114 @@ function initMoodTracker() {
 function saveMood() {
   const selected = document.querySelector('.mood-btn.selected');
   if (!selected) { showToast('⚠ Please select a mood first'); return; }
-  showToast(`✓ Mood "${selected.dataset.mood}" saved!`);
-  store('mood', { mood: selected.dataset.mood, ts: Date.now() });
-}
 
+  const moodName = selected.dataset.mood;
+  const score = moodLevels[moodName];
+  const note = document.getElementById("moodNote").value;
+
+  if (selectedMoodIndex !== null) {
+    // update existing day
+    moodHistory[selectedMoodIndex] = { mood: moodName, score, note };
+    selectedMoodIndex = null;
+  } else {
+    // push new day
+    moodHistory.push({ mood: moodName, score, note });
+    moodHistory = moodHistory.slice(-7);
+  }
+
+  store("mood-history", moodHistory);
+  showToast(`✓ Mood "${moodName}" saved!`);
+  drawMoodChart();
+}
 let moodChart = null;
+
 function drawMoodChart() {
   const ctx = document.getElementById('moodChart');
   if (!ctx) return;
+
   const isDark = root.getAttribute('data-theme') === 'dark';
   const gc = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
   const tc = isDark ? '#8b949e' : '#718096';
+
+  // inspirational hover quotes:
+  const quotes = [
+    "Keep going—you’re doing great.",
+    "Every day counts.",
+    "Your feelings matter.",
+    "You’re stronger than you think.",
+    "Be kind to yourself.",
+    "Small progress is still progress.",
+    "You are growing.",
+    "Breathe. You got this."
+  ];
+
+  const scores = moodHistory.map(e => e.score);
+  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
+                 .slice(-scores.length);
+
   if (moodChart) moodChart.destroy();
+
   moodChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      labels,
       datasets: [{
-        data: [4,3,5,4,3,5,4],
+        data: scores,
         borderColor: '#a855f7',
         backgroundColor: 'rgba(168,85,247,0.1)',
-        tension: 0.4, fill: true, pointRadius: 5,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 6,
+        pointHoverRadius: 8,
         pointBackgroundColor: '#a855f7'
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: false,
+
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(ctx) {
+              const q = quotes[Math.floor(Math.random()*quotes.length)];
+              const moodName = moodHistory[ctx.dataIndex].mood;
+              return `${moodName} (${ctx.raw}/5)\n${q}`;
+            }
+          }
+        }
+      },
+
+      // CLICK TO EDIT
+      onClick: (evt) => {
+        const pts = moodChart.getElementsAtEventForMode(
+          evt,
+          "nearest",
+          { intersect: true },
+          true
+        );
+        if (!pts.length) return;
+
+        const index = pts[0].index;
+        selectedMoodIndex = index;
+
+        const entry = moodHistory[index];
+
+        // visually select mood again
+        document.querySelectorAll('.mood-btn').forEach(b => {
+          b.classList.remove('selected');
+          if (b.dataset.mood === entry.mood) b.classList.add('selected');
+        });
+
+        // load note
+        document.getElementById("moodNote").value = entry.note || "";
+
+        showToast("Editing selected day's mood...");
+      },
+
       scales: {
-        y: { min:1, max:5, grid:{color:gc}, ticks:{color:tc} },
+        y: { min: 1, max: 5, grid:{color:gc}, ticks:{color:tc} },
         x: { grid:{color:gc}, ticks:{color:tc} }
       }
     }
