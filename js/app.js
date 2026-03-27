@@ -298,67 +298,87 @@ function drawMoodChart() {
    STRESS MONITOR  — UPDATED FOR DYNAMIC GRAPH
    ============================================================ */
    let selectedDayIndex = null;
+
 const stressData = {
   emojis:  ['','😌','😊','😕','😐','😟','😧','😰','😱','😤','🤯'],
   labels:  ['','Very Calm','Calm','Mild','Moderate','Stressed','Tense','Anxious','Very Anxious','Severe','Extreme'],
   colors:  ['','#4ade80','#4ade80','#86efac','#facc15','#fb923c','#f97316','#ef4444','#dc2626','#b91c1c','#7f1d1d']
 };
 
-// Load or initialize array
-let stressHistory = retrieve('stress-history', []);  // <-- NEW
+// Load or initialize stress history
+let stressHistory = retrieve("stress-history", []);
 
+// Initialize
 function initStressMonitor() {
-  const slider = document.getElementById('stressSlider');
+  const slider = document.getElementById("stressSlider");
   if (slider) {
-    slider.addEventListener('input', function() { updateStressDisplay(parseInt(this.value)); });
+    slider.addEventListener("input", () =>
+      updateStressDisplay(parseInt(slider.value))
+    );
     updateStressDisplay(parseInt(slider.value));
   }
+
   drawStressChart();
 }
 
+// Update emoji label + score display
 function updateStressDisplay(v) {
-  const emoji = document.getElementById('stressEmoji');
-  const label = document.getElementById('stressLabelText');
-  const score = document.getElementById('stressScore');
-  if (emoji)  emoji.textContent      = stressData.emojis[v];
-  if (label) { label.textContent     = stressData.labels[v]; label.style.color = stressData.colors[v]; }
-  if (score) { score.textContent     = `● ${v}/10`; score.style.color = stressData.colors[v]; score.style.background = stressData.colors[v] + '22'; }
+  const emoji = document.getElementById("stressEmoji");
+  const label = document.getElementById("stressLabelText");
+  const score = document.getElementById("stressScore");
+
+  if (emoji) emoji.textContent = stressData.emojis[v];
+  if (label) {
+    label.textContent = stressData.labels[v];
+    label.style.color = stressData.colors[v];
+  }
+  if (score) {
+    score.textContent = `● ${v}/10`;
+    score.style.color = stressData.colors[v];
+    score.style.background = stressData.colors[v] + "22";
+  }
 }
 
-function toggleSymptom(el) { el.classList.toggle('active'); }
+function toggleSymptom(el) {
+  el.classList.toggle("active");
+}
 
+// Save stress: new or edit existing day
 function saveStress() {
-  const v = parseInt(document.getElementById('stressSlider')?.value || 3);
+  const v = parseInt(document.getElementById("stressSlider")?.value || 3);
 
   if (selectedDayIndex !== null) {
-    // update existing day
+    // Update selected day's stress
     stressHistory[selectedDayIndex].level = v;
-    selectedDayIndex = null; // reset
+    selectedDayIndex = null;
   } else {
-    // add new day normally
-    const activeSym = [...document.querySelectorAll('.symptom-tag.active')]
-                      .map(t => t.textContent);
+    // Normal: Add new day entry
+    const activeSym = [...document.querySelectorAll(".symptom-tag.active")].map(
+      (t) => t.textContent
+    );
 
     const entry = { level: v, symptoms: activeSym, ts: Date.now() };
 
     stressHistory.push(entry);
-    stressHistory = stressHistory.slice(-7);
+    stressHistory = stressHistory.slice(-7); // Keep last 7 days
   }
 
-  store('stress-history', stressHistory);
-  showToast('✓ Stress updated!');
+  store("stress-history", stressHistory);
+  showToast("✓ Stress updated!");
+
   drawStressChart();
 }
 
 let stressChart = null;
 
+// Draw stress chart
 function drawStressChart() {
-  const ctx = document.getElementById('stressChart');
+  const ctx = document.getElementById("stressChart");
   if (!ctx) return;
 
-  const isDark = root.getAttribute('data-theme') === 'dark';
-  const gc = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
-  const tc = isDark ? '#8b949e' : '#718096';
+  const isDark = root.getAttribute("data-theme") === "dark";
+  const gc = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.05)";
+  const tc = isDark ? "#8b949e" : "#718096";
 
   const motivationalQuotes = [
     "You're doing better than you think.",
@@ -373,25 +393,31 @@ function drawStressChart() {
     "Keep going — proud of you."
   ];
 
-  const values = stressHistory.map(e => parseInt(e.level));
+  const values = stressHistory.map((e) => parseInt(e.level));
   const plotData = values.length ? values : [0];
+
+  // FIXED WEEKDAY ORDER
+  const fullWeek = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const labels = fullWeek.slice(fullWeek.length - plotData.length);
 
   if (stressChart) stressChart.destroy();
 
   stressChart = new Chart(ctx, {
-    type: 'line',
+    type: "line",
     data: {
-      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].slice(-plotData.length),
-      datasets: [{
-        data: plotData,
-        borderColor: '#f97316',
-        backgroundColor: 'rgba(249,115,22,0.1)',
-        tension: 0.4,
-        fill: true,
-        pointRadius: 6,
-        pointHoverRadius: 8,
-        pointBackgroundColor: '#f97316'
-      }]
+      labels: labels,
+      datasets: [
+        {
+          data: plotData,
+          borderColor: "#f97316",
+          backgroundColor: "rgba(249,115,22,0.1)",
+          tension: 0.4,
+          fill: true,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBackgroundColor: "#f97316"
+        }
+      ]
     },
     options: {
       responsive: true,
@@ -403,39 +429,43 @@ function drawStressChart() {
         tooltip: {
           callbacks: {
             label: function (ctx) {
-              const quote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+              const quote =
+                motivationalQuotes[
+                  Math.floor(Math.random() * motivationalQuotes.length)
+                ];
               return `Stress: ${ctx.raw}/10\n${quote}`;
             }
           }
         }
       },
 
+      // Clicking to edit a point
       onClick: (event) => {
-  const points = stressChart.getElementsAtEventForMode(
-    event,
-    'nearest',
-    { intersect: true },
-    true
-  );
+        const points = stressChart.getElementsAtEventForMode(
+          event,
+          "nearest",
+          { intersect: true },
+          true
+        );
 
-  if (points.length === 0) return;
+        if (!points.length) return;
 
-  const index = points[0].index;
-  selectedDayIndex = index;
+        const index = points[0].index;
+        selectedDayIndex = index;
 
-  // load value into slider
-  const slider = document.getElementById('stressSlider');
-  slider.value = stressHistory[index].level;
+        // Load value into slider
+        const slider = document.getElementById("stressSlider");
+        slider.value = stressHistory[index].level;
 
-  // update emoji, label, score display
-  updateStressDisplay(stressHistory[index].level);
+        updateStressDisplay(stressHistory[index].level);
 
-  showToast("Editing selected day's stress score...");
-},
+        showToast("Editing selected day's stress score...");
+      },
 
+      // Scales
       scales: {
-        y: { min:0, max:10, grid:{color:gc}, ticks:{color:tc} },
-        x: { grid:{color:gc}, ticks:{color:tc} }
+        y: { min: 0, max: 10, grid: { color: gc }, ticks: { color: tc } },
+        x: { grid: { color: gc }, ticks: { color: tc } }
       }
     }
   });
