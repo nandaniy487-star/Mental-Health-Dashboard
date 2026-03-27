@@ -206,7 +206,6 @@ function drawMoodChart() {
   const gc = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
   const tc = isDark ? '#8b949e' : '#718096';
 
-  // inspirational hover quotes:
   const quotes = [
     "Keep going—you’re doing great.",
     "Every day counts.",
@@ -219,8 +218,10 @@ function drawMoodChart() {
   ];
 
   const scores = moodHistory.map(e => e.score);
-  const labels = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun']
-                 .slice(-scores.length);
+
+  // ✔ FIX: Correct weekday order
+  const fullWeek = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const labels = fullWeek.slice(0, scores.length);
 
   if (moodChart) moodChart.destroy();
 
@@ -256,7 +257,6 @@ function drawMoodChart() {
         }
       },
 
-      // CLICK TO EDIT
       onClick: (evt) => {
         const pts = moodChart.getElementsAtEventForMode(
           evt,
@@ -271,13 +271,11 @@ function drawMoodChart() {
 
         const entry = moodHistory[index];
 
-        // visually select mood again
         document.querySelectorAll('.mood-btn').forEach(b => {
           b.classList.remove('selected');
           if (b.dataset.mood === entry.mood) b.classList.add('selected');
         });
 
-        // load note
         document.getElementById("moodNote").value = entry.note || "";
 
         showToast("Editing selected day's mood...");
