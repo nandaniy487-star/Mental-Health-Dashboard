@@ -202,11 +202,18 @@ function drawMoodChart() {
 /* ============================================================
    STRESS MONITOR
    ============================================================ */
+/* ============================================================
+   STRESS MONITOR  — UPDATED FOR DYNAMIC GRAPH
+   ============================================================ */
+   let selectedDayIndex = null;
 const stressData = {
   emojis:  ['','😌','😊','😕','😐','😟','😧','😰','😱','😤','🤯'],
   labels:  ['','Very Calm','Calm','Mild','Moderate','Stressed','Tense','Anxious','Very Anxious','Severe','Extreme'],
   colors:  ['','#4ade80','#4ade80','#86efac','#facc15','#fb923c','#f97316','#ef4444','#dc2626','#b91c1c','#7f1d1d']
 };
+
+// Load or initialize array
+let stressHistory = retrieve('stress-history', []);  // <-- NEW
 
 function initStressMonitor() {
   const slider = document.getElementById('stressSlider');
@@ -229,35 +236,111 @@ function updateStressDisplay(v) {
 function toggleSymptom(el) { el.classList.toggle('active'); }
 
 function saveStress() {
-  const v = document.getElementById('stressSlider')?.value || 3;
-  const active = [...document.querySelectorAll('.symptom-tag.active')].map(t => t.textContent);
-  store('stress', { level: v, symptoms: active, ts: Date.now() });
-  showToast('✓ Stress entry saved!');
+  const v = parseInt(document.getElementById('stressSlider')?.value || 3);
+
+  if (selectedDayIndex !== null) {
+    // update existing day
+    stressHistory[selectedDayIndex].level = v;
+    selectedDayIndex = null; // reset
+  } else {
+    // add new day normally
+    const activeSym = [...document.querySelectorAll('.symptom-tag.active')]
+                      .map(t => t.textContent);
+
+    const entry = { level: v, symptoms: activeSym, ts: Date.now() };
+
+    stressHistory.push(entry);
+    stressHistory = stressHistory.slice(-7);
+  }
+
+  store('stress-history', stressHistory);
+  showToast('✓ Stress updated!');
+  drawStressChart();
 }
 
 let stressChart = null;
+
 function drawStressChart() {
   const ctx = document.getElementById('stressChart');
   if (!ctx) return;
+
   const isDark = root.getAttribute('data-theme') === 'dark';
   const gc = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)';
   const tc = isDark ? '#8b949e' : '#718096';
+
+  const motivationalQuotes = [
+    "You're doing better than you think.",
+    "Small steps count.",
+    "You are stronger than yesterday.",
+    "Be kind to yourself.",
+    "Progress is progress!",
+    "Breathe. You got this.",
+    "Take it one day at a time.",
+    "Your feelings are valid.",
+    "You are not alone.",
+    "Keep going — proud of you."
+  ];
+
+  const values = stressHistory.map(e => parseInt(e.level));
+  const plotData = values.length ? values : [0];
+
   if (stressChart) stressChart.destroy();
+
   stressChart = new Chart(ctx, {
     type: 'line',
     data: {
-      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].slice(-plotData.length),
       datasets: [{
-        data: [2,3,4,3,5,2,3],
+        data: plotData,
         borderColor: '#f97316',
         backgroundColor: 'rgba(249,115,22,0.1)',
-        tension: 0.4, fill: true, pointRadius: 5,
+        tension: 0.4,
+        fill: true,
+        pointRadius: 6,
+        pointHoverRadius: 8,
         pointBackgroundColor: '#f97316'
       }]
     },
     options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      responsive: true,
+      maintainAspectRatio: false,
+
+      plugins: {
+        legend: { display: false },
+
+        tooltip: {
+          callbacks: {
+            label: function (ctx) {
+              const quote = motivationalQuotes[Math.floor(Math.random() * motivationalQuotes.length)];
+              return `Stress: ${ctx.raw}/10\n${quote}`;
+            }
+          }
+        }
+      },
+
+      onClick: (event) => {
+  const points = stressChart.getElementsAtEventForMode(
+    event,
+    'nearest',
+    { intersect: true },
+    true
+  );
+
+  if (points.length === 0) return;
+
+  const index = points[0].index;
+  selectedDayIndex = index;
+
+  // load value into slider
+  const slider = document.getElementById('stressSlider');
+  slider.value = stressHistory[index].level;
+
+  // update emoji, label, score display
+  updateStressDisplay(stressHistory[index].level);
+
+  showToast("Editing selected day's stress score...");
+},
+
       scales: {
         y: { min:0, max:10, grid:{color:gc}, ticks:{color:tc} },
         x: { grid:{color:gc}, ticks:{color:tc} }
